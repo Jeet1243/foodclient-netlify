@@ -3,11 +3,15 @@ import "./PlaceOrder.css";
 import { assets } from "../../assets/assets";
 import { StoreContext } from "../../context/StoreContext";
 import { calculateCartTotals } from "../../util/cartUtils";
-import axios from "axios";
 import { toast } from "react-toastify";
 import { RAZORPAY_KEY } from "../../util/contants";
 import { useNavigate } from "react-router-dom";
-//import Razorpay from "razorpay";
+import {
+  createOrder,
+  deleteOrder,
+  verifyPayment,
+} from "../../service/orderService";
+import { clearCartItems } from "../../service/cartService";
 
 const PlaceOrder = () => {
   const { foodList, quantities, setQuantities, token } =
@@ -51,14 +55,10 @@ const PlaceOrder = () => {
     };
 
     try {
-      const response = await axios.post(
-        "http://localhost:8080/api/orders/create",
-        orderData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (response.status === 201 && response.data.razorpayOrderId) {
+      const response = await createOrder(orderData, token);
+      if (response.razorpayOrderId) {
         // initiate the payment
-        initiateRazorpayPayment(response.data);
+        initiateRazorpayPayment(response);
       } else {
         toast.error("Unable to place order. Please try again.");
       }
@@ -75,9 +75,7 @@ const PlaceOrder = () => {
       name: "Food Land",
       description: "Food order payment",
       order_id: order.razorpayOrderId,
-      handler: async function (razorpayResponse) {
-        await verifyPayment(razorpayResponse);
-      },
+      handler: verifyPaymentHandler,
       prefill: {
         name: `${data.firstName} ${data.lastName}`,
         email: data.email,
@@ -85,29 +83,22 @@ const PlaceOrder = () => {
       },
       theme: { color: "#3399cc" },
       modal: {
-        ondismiss: async function () {
-          toast.error("Payment cancelled.");
-          await deleteOrder(order.id);
-        },
+        ondismiss: deleteOrderHandler,
       },
     };
     const razorpay = new window.Razorpay(options);
     razorpay.open();
   };
 
-  const verifyPayment = async (razorpayResponse) => {
+  const verifyPaymentHandler = async (razorpayResponse) => {
     const paymentData = {
       razorpay_payment_id: razorpayResponse.razorpay_payment_id,
       razorpay_order_id: razorpayResponse.razorpay_order_id,
       razorpay_signature: razorpayResponse.razorpay_signature,
     };
     try {
-      const response = await axios.post(
-        "http://localhost:8080/api/orders/verify",
-        paymentData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (response.status === 200) {
+      const success = await verifyPayment(paymentData, token);
+      if (success) {
         toast.success("Payment successful.");
         await clearCart();
         navigate("/myorders");
@@ -120,11 +111,9 @@ const PlaceOrder = () => {
     }
   };
 
-  const deleteOrder = async (orderId) => {
+  const deleteOrderHandler = async (orderId) => {
     try {
-      await axios.delete("http://localhost:8080/api/orders/" + orderId, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await deleteOrder(orderId, token);
     } catch (error) {
       toast.error("Something went wrong. Contact support.");
     }
@@ -132,10 +121,7 @@ const PlaceOrder = () => {
 
   const clearCart = async () => {
     try {
-      await axios.delete("http://localhost:8080/api/cart", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setQuantities({});
+      await clearCartItems(token, setQuantities);
     } catch (error) {
       toast.error("Error while clearing the cart.");
     }
@@ -307,6 +293,16 @@ const PlaceOrder = () => {
                   >
                     <option value="">Choose...</option>
                     <option>Karnataka</option>
+                    <option>Maharashtra</option>
+                    <option>Uttar Pradesh</option>
+                    <option>Tamil Nadu</option>
+                    <option>West Bengal</option>
+                    <option>Rajasthan</option>
+                    <option>Gujarat</option>
+                    <option>Bihar</option>
+                    <option>Punjab</option>
+                    <option>Madhya Pradesh</option>
+                    <option>Kerala</option>
                   </select>
                 </div>
 
@@ -323,7 +319,21 @@ const PlaceOrder = () => {
                     onChange={onChangeHandler}
                   >
                     <option value="">Choose...</option>
-                    <option>Banglore</option>
+                    <option>Mumbai</option>           
+                    <option>Pune</option>             
+                    <option>Lucknow</option>         
+                    <option>Varanasi</option>        
+                    <option>Chennai</option>         
+                    <option>Coimbatore</option>      
+                    <option>Kolkata</option>         
+                    <option>Jaipur</option>          
+                    <option>Udaipur</option>         
+                    <option>Ahmedabad</option>       
+                    <option>Surat</option>          
+                    <option>Patna</option>          
+                    <option>Ludhiana</option>        
+                    <option>Bhopal</option>       
+                    <option>Kochi</option>          
                   </select>
                 </div>
 
